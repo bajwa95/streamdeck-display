@@ -21,6 +21,23 @@ The Stream Deck buttons display GIFs/images on a fullscreen HDMI display.
 
 ---
 
+## Network / QR Access
+
+The bottom-right Stream Deck key (Button 15) is reserved as the **NET / QR** button.
+
+### When connected to Wi-Fi
+
+Pressing **NET / QR**:
+
+1. Detects the Raspberry Pi's current Wi-Fi connection.
+2. Detects its current IPv4 address.
+3. Generates a QR code for the Flask Media Manager.
+4. Displays the QR code fullscreen on the HDMI display.
+
+For example:
+
+```text
+http://192.168.x.x:5000
 # Hardware
 
 This project was developed using:

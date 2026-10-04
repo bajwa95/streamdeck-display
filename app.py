@@ -5,10 +5,12 @@ import time
 import os
 import threading
 from PyQt5.QtWidgets import QApplication, QLabel
-from PyQt5.QtGui import QMovie
+from PyQt5.QtGui import QMovie, QPixmap
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, QTimer
 from PIL import Image, ImageDraw
 from StreamDeck.ImageHelpers import PILHelper
+import subprocess
+import qrcode
 qt_app = QApplication([])
 decks = DeviceManager().enumerate()
 
@@ -27,7 +29,7 @@ for filename in os.listdir(MEDIA_FOLDER):
         files.append(filename)
 
 files.sort()
-files = files[:15]
+files = files[:14]
 
 MEDIA = {}
 
@@ -41,19 +43,20 @@ return_timer = None
 
 SHORT_DISPLAY_TIME = 3
 LONG_PRESS_TIME = 1.5
+NETWORK_KEY = 14   # Stream Deck Button 15 (bottom-right)
 #print("Connected:", deck.get_serial_number())
 print("Number of buttons:", deck.key_count())
 
 class MediaDisplay(QObject):
     change_media = pyqtSignal(str)
-
+    show_qr_signal = pyqtSignal(str)
+    show_hotspot_qr_signal = pyqtSignal(str)
     def __init__(self):
         super().__init__()
 
         self.label = QLabel()
         self.label.setWindowFlags(
-            Qt.FramelessWindowHint |
-            Qt.WindowStaysOnTopHint
+            Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
         )
 
         self.label.setStyleSheet("background-color: black;")
@@ -63,7 +66,77 @@ class MediaDisplay(QObject):
         self.movie = None
 
         self.change_media.connect(self.show_media)
+        self.show_qr_signal.connect(self.show_qr)
+        self.show_hotspot_qr_signal.connect(self.show_hotspot_qr)
+    def show_hotspot_qr(self, url):
+        if self.movie:
+            self.movie.stop()
+            self.movie = None
 
+        qr = qrcode.make(url)
+        qr_path = "/tmp/rearwave_hotspot_qr.png"
+        qr.save(qr_path)
+
+        screen = QApplication.primaryScreen().geometry()
+
+        html = f"""
+        <div style="color:white; text-align:center;">
+            <h1>RearWave Hotspot</h1>
+
+            <p style="font-size:28px;">
+                1. Connect your phone to Wi-Fi
+            </p>
+
+            <p style="font-size:38px;">
+                <b>RearWave</b>
+            </p>
+
+            <p style="font-size:28px;">
+                2. Once connected, scan the QR code
+            </p>
+
+            <img src="{qr_path}" width="350" height="350">
+
+            <p style="font-size:24px;">
+                {url}
+            </p>
+        </div>
+        """
+
+        self.label.setMovie(None)
+        self.label.setPixmap(QPixmap())
+        self.label.setText(html)
+        self.label.setGeometry(screen)
+        self.label.setAlignment(Qt.AlignCenter)
+
+        print(f"Hotspot QR displayed: {url}")
+    def show_qr(self, url):
+        if self.movie:
+            self.movie.stop()
+            self.movie = None
+        qr = qrcode.make(url)
+        qr_path = "/tmp/rearwave_qr.png"
+        qr.save(qr_path)
+
+        pixmap = QPixmap(qr_path)
+
+        screen = QApplication.primaryScreen().geometry()
+
+        qr_size = min(screen.width(), screen.height()) - 100
+
+        pixmap = pixmap.scaled(
+            qr_size,
+            qr_size,
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
+        )
+
+        self.label.setMovie(None)
+        self.label.setPixmap(pixmap)
+        self.label.setGeometry(screen)
+        self.label.setAlignment(Qt.AlignCenter)
+
+        print(f"QR displayed: {url}")
     def show_media(self, filename):
         if self.movie:
             self.movie.stop()
@@ -89,7 +162,7 @@ def reload_media():
             files.append(filename)
 
     files.sort()
-    files = files[:15]
+    files = files[:14]
 
     MEDIA = {}
 
@@ -139,9 +212,40 @@ def set_button_thumbnail(deck, key, media_file):
 
     except Exception as e:
         print(f"Thumbnail error for Button {key + 1}: {e}")
+def set_network_button(deck):
+    image = Image.new("RGB", (100, 100), "black")
+    draw = ImageDraw.Draw(image)
+
+    draw.rectangle([3, 3, 96, 96], outline="white", width=3)
+
+    draw.text(
+        (50, 38),
+        "NET",
+        fill="white",
+        anchor="mm"
+    )
+
+    draw.text(
+        (50, 63),
+        "QR",
+        fill="white",
+        anchor="mm"
+    )
+
+    button_image = PILHelper.create_scaled_image(
+        deck,
+        image,
+        margins=[0, 0, 0, 0]
+    )
+
+    deck.set_key_image(
+        NETWORK_KEY,
+        PILHelper.to_native_format(deck, button_image)
+    )
 def refresh_thumbnails():
     for key, media_file in MEDIA.items():
         set_button_thumbnail(deck, key, media_file)
+    set_network_button(deck)
 def play_media(key):
     media_file = MEDIA.get(key)
 
@@ -153,9 +257,86 @@ def return_to_main():
     global return_timer
     return_timer = None
     play_media(main_key)
+def network_button_pressed():
+    try:
+        connection = subprocess.check_output(
+            [
+                "nmcli", "-t",
+                "-f", "GENERAL.CONNECTION",
+                "device", "show", "wlan0"
+            ],
+            text=True
+        ).strip()
+
+        connection = connection.split(":", 1)[1]
+
+        print(f"Network button: connection = {connection}")
+
+        if connection and connection != "--":
+            ip_output = subprocess.check_output(
+                ["ip", "-4", "-o", "addr", "show", "dev", "wlan0"],
+                text=True
+            )
+
+            ip_address = ip_output.split()[3].split("/")[0]
+
+            print(f"WiFi connected: {connection}")
+            print(f"Web Manager: http://{ip_address}:5000")
+            url = f"http://{ip_address}:5000"
+            display.show_qr_signal.emit(url)
+        else:
+            print("No WiFi connection - starting RearWave hotspot...")
+
+            subprocess.run(
+                ["nmcli", "connection", "up", "RearWave-Hotspot"],
+                check=True
+            )
+
+            url = "http://192.168.50.1:5000"
+
+            print("RearWave hotspot started")
+            print(f"Web Manager: {url}")
+
+            display.show_hotspot_qr_signal.emit(url)
+
+    except Exception as e:
+        print(f"Network detection error: {e}")
+def stop_hotspot_if_active():
+    try:
+        connection = subprocess.check_output(
+            [
+                "nmcli", "-t",
+                "-f", "GENERAL.CONNECTION",
+                "device", "show", "wlan0"
+            ],
+            text=True
+        ).strip()
+
+        connection = connection.split(":", 1)[1]
+
+        if connection == "RearWave-Hotspot":
+            print("Stopping RearWave hotspot...")
+
+            subprocess.run(
+                ["nmcli", "connection", "down", "RearWave-Hotspot"],
+                check=False
+            )
+
+            print("RearWave hotspot stopped")
+
+    except Exception as e:
+        print(f"Hotspot stop error: {e}")
 def button_pressed(deck, key, state):
     global main_key, return_timer
-
+        # Button 15 - Network / QR
+    if key == NETWORK_KEY:
+        if state:
+            network_button_pressed()
+        return
+    
+    # Any normal media button turns off the hotspot
+    if state:
+        stop_hotspot_if_active()# Any normal media button turns off the hotspot
     # Ignore buttons that don't have media assigned
     if key not in MEDIA:
         return
@@ -199,6 +380,7 @@ def button_pressed(deck, key, state):
 
 for key, media_file in MEDIA.items():
     set_button_thumbnail(deck, key, media_file)
+set_network_button(deck)
 deck.set_key_callback(button_pressed)
 play_media(main_key)
 last_media_state = None
