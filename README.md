@@ -1,55 +1,37 @@
 # Stream Deck Media Display
 
-Raspberry Pi based media display controlled using an Elgato Stream Deck.
+A Raspberry Pi media display controlled with an Elgato Stream Deck.
 
-The Stream Deck buttons display GIFs/images on a fullscreen HDMI display.
+Media is shown fullscreen on an HDMI display using PyQt5. The Stream Deck provides quick media selection, MAIN-media control, and a dedicated **NET / QR** button for opening the web-based Media Manager from a phone.
 
 ## Features
 
 - Elgato Stream Deck Original V2 support
-- 15 programmable media buttons
-- GIF/image playback on HDMI display
-- Fullscreen PyQt5 display
-- Short press temporarily displays selected media
-- Automatically returns to the main media after 3 seconds
-- Long press sets a button as the new MAIN media
-- MAIN button highlighted on Stream Deck
-- Web interface for uploading and deleting media
+- 14 media buttons plus 1 dedicated **NET / QR** button
+- GIF, JPG, JPEG, and PNG display
+- Fullscreen PyQt5 output
+- Short press displays selected media temporarily
+- Automatically returns to MAIN media after approximately 3 seconds
+- Long press sets a media button as the new MAIN
+- MAIN button is highlighted on the Stream Deck
+- Flask web interface for uploading and deleting media
 - Automatic media-folder refresh
-- Stream Deck application starts automatically after desktop login
-- Flask web server starts automatically at boot
+- Dynamic QR code for Media Manager access
+- On-demand Wi-Fi hotspot when normal Wi-Fi is unavailable
+- Hotspot automatically shuts down when a normal media button is pressed
+- Stream Deck application can start automatically after desktop login
+- Flask Media Manager can start automatically at boot
 
----
+## Hardware
 
-## Network / QR Access
+Developed and tested with:
 
-The bottom-right Stream Deck key (Button 15) is reserved as the **NET / QR** button.
-
-### When connected to Wi-Fi
-
-Pressing **NET / QR**:
-
-1. Detects the Raspberry Pi's current Wi-Fi connection.
-2. Detects its current IPv4 address.
-3. Generates a QR code for the Flask Media Manager.
-4. Displays the QR code fullscreen on the HDMI display.
-
-For example:
-
-```text
-http://192.168.x.x:5000
-# Hardware
-
-This project was developed using:
-
-- Raspberry Pi 3
+- Raspberry Pi 3B+
 - Raspberry Pi OS Desktop
-- Elgato Stream Deck Original V2
+- Elgato Stream Deck Original V2 (15 keys)
 - HDMI display
 
----
-
-# Project Structure
+## Project Structure
 
 ```text
 streamdeck-display/
@@ -57,25 +39,28 @@ streamdeck-display/
 ├── web.py
 ├── requirements.txt
 ├── README.md
+├── LICENSE
 ├── .gitignore
 ├── media/
 └── venv/
 ```
 
-`media/` and `venv/` are excluded from Git.
+The virtual environment and personal media files should not be included in the project repository.
 
 ---
 
-# 1. System Packages
+# Installation
 
-Update the Raspberry Pi:
+## 1. Install System Packages
+
+Update Raspberry Pi OS:
 
 ```bash
 sudo apt update
 sudo apt upgrade -y
 ```
 
-Install the required system packages:
+Install the required packages:
 
 ```bash
 sudo apt install -y \
@@ -87,64 +72,47 @@ sudo apt install -y \
     libudev-dev
 ```
 
----
-
-# 2. Create Project Folder
+## 2. Create the Project Folder
 
 ```bash
 mkdir -p ~/streamdeck-display
 cd ~/streamdeck-display
 ```
 
----
+Place the project files in this directory.
 
-# 3. Create Python Virtual Environment
+## 3. Create the Python Virtual Environment
 
-PyQt5 is installed through Raspberry Pi OS, so create the virtual environment with access to system packages:
+PyQt5 is provided by Raspberry Pi OS, so create the environment with access to system packages:
 
 ```bash
 python3 -m venv --system-site-packages venv
-```
-
-Activate it:
-
-```bash
 source venv/bin/activate
 ```
 
-When activated, the terminal should show:
+## 4. Install Python Packages
 
-```text
-(venv)
-```
-
----
-
-# 4. Install Python Packages
-
-If installing from the repository:
+Install the project requirements:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-For a fresh manual installation, the main packages are:
+The application uses the Stream Deck library, Pillow, Flask, and `qrcode`.
+
+If `qrcode` is not already present:
 
 ```bash
-pip install streamdeck pillow flask
+pip install "qrcode[pil]"
 ```
 
----
-
-# 5. Media Folder
-
-Create the media directory:
+## 5. Create the Media Folder
 
 ```bash
 mkdir -p ~/streamdeck-display/media
 ```
 
-Supported media currently includes:
+Supported media:
 
 ```text
 .gif
@@ -153,75 +121,233 @@ Supported media currently includes:
 .png
 ```
 
-The application loads up to 15 media files because the Stream Deck has 15 buttons.
-
-Media files are intentionally excluded from Git.
+The first **14 media slots** are mapped to Stream Deck buttons 1–14. Button 15 is reserved for **NET / QR**.
 
 ---
 
-# 6. Run the Stream Deck Application Manually
+# Running the Applications
 
-Activate the virtual environment:
+## Stream Deck Display
+
+From the Raspberry Pi graphical desktop session:
 
 ```bash
 cd ~/streamdeck-display
 source venv/bin/activate
-```
-
-Run:
-
-```bash
 python app.py
 ```
 
-Alternatively, run directly with the virtual environment Python:
+When starting through SSH while the Raspberry Pi desktop is already running, the display may need to be specified:
 
 ```bash
-/home/garry/streamdeck-display/venv/bin/python /home/garry/streamdeck-display/app.py
+DISPLAY=:0 python app.py
 ```
 
-The second method does not require manually activating the virtual environment.
+`app.py` requires access to the graphical desktop and should not normally be run with `sudo`.
 
----
-
-# 7. Run the Web Media Manager
-
-Activate the environment if necessary:
-
-```bash
-cd ~/streamdeck-display
-source venv/bin/activate
-```
+## Web Media Manager
 
 Run:
 
 ```bash
+cd ~/streamdeck-display
+source venv/bin/activate
 python web.py
 ```
 
-The Flask server runs on:
+The Media Manager listens on port `5000`.
 
-```text
-Port 5000
-```
-
-From another device on the same network, open the Raspberry Pi's IP address with port 5000.
-
-Example:
+From another device on the same network:
 
 ```text
 http://RASPBERRY_PI_IP:5000
 ```
 
-The web interface allows media files to be uploaded and deleted.
+The web interface allows supported media files to be uploaded and deleted.
 
 ---
 
-# 8. Start Stream Deck Display Automatically
+# Stream Deck Controls
 
-`app.py` uses PyQt5 and requires the graphical desktop session.
+## Buttons 1–14
 
-For this reason it should be started using Desktop Autostart rather than a normal systemd service.
+### Short Press
+
+Press and release a media button.
+
+The selected media is displayed temporarily. After approximately 3 seconds, the display returns to the current MAIN media.
+
+### Long Press
+
+Hold a media button for approximately 1.5 seconds.
+
+That media becomes the new MAIN media and its Stream Deck thumbnail is highlighted.
+
+## Button 15 — NET / QR
+
+The bottom-right key is reserved for network access.
+
+### When Normal Wi-Fi Is Connected
+
+Pressing **NET / QR**:
+
+1. Detects the active Wi-Fi connection.
+2. Reads the Raspberry Pi's current IPv4 address.
+3. Builds the Media Manager address using port `5000`.
+4. Generates a QR code.
+5. Displays the QR code fullscreen on the HDMI display.
+
+Example:
+
+```text
+http://192.168.x.x:5000
+```
+
+A phone connected to the same Wi-Fi network can scan the QR code to open the Media Manager.
+
+### When Normal Wi-Fi Is Not Connected
+
+Pressing **NET / QR** starts the configured `RearWave-Hotspot` connection.
+
+The HDMI display instructs the user to:
+
+1. Connect the phone to Wi-Fi network `RearWave`.
+2. Wait until the phone is connected.
+3. Scan the displayed Media Manager QR code.
+
+The hotspot Media Manager address is:
+
+```text
+http://192.168.50.1:5000
+```
+
+The hotspot is **on demand**. It is not intended to run continuously or automatically at boot.
+
+When a normal media button (1–14) is pressed while `RearWave-Hotspot` is active, the application shuts down the hotspot so NetworkManager can reconnect to a known Wi-Fi network.
+
+---
+
+# Configure the On-Demand Hotspot
+
+The hotspot uses NetworkManager and the Raspberry Pi's `wlan0` interface.
+
+## 1. Create the Hotspot Profile
+
+```bash
+sudo nmcli connection add \
+    type wifi \
+    ifname wlan0 \
+    con-name RearWave-Hotspot \
+    autoconnect no \
+    ssid RearWave
+```
+
+Configure access-point mode and the fixed hotspot address:
+
+```bash
+sudo nmcli connection modify RearWave-Hotspot \
+    802-11-wireless.mode ap \
+    802-11-wireless.band bg \
+    ipv4.method shared \
+    ipv4.addresses 192.168.50.1/24 \
+    ipv6.method disabled
+```
+
+Configure WPA security:
+
+```bash
+sudo nmcli connection modify RearWave-Hotspot \
+    wifi-sec.key-mgmt wpa-psk \
+    wifi-sec.psk "YOUR_HOTSPOT_PASSWORD"
+```
+
+Replace `YOUR_HOTSPOT_PASSWORD` with your own secure password.
+
+Do **not** place the real hotspot password in source code, README files, or public configuration examples.
+
+Ensure the hotspot does not automatically start:
+
+```bash
+sudo nmcli connection modify RearWave-Hotspot connection.autoconnect no
+```
+
+Verify:
+
+```bash
+nmcli connection show RearWave-Hotspot
+```
+
+## 2. Allow the Display App to Control the Hotspot
+
+`app.py` runs as the normal desktop user. NetworkManager may otherwise request interactive authorization when the application tries to start or stop the hotspot.
+
+Create a PolicyKit rule:
+
+```bash
+sudo nano /etc/polkit-1/rules.d/49-rearwave-network.rules
+```
+
+Add:
+
+```javascript
+polkit.addRule(function(action, subject) {
+    if (
+        subject.user == "YOUR_USERNAME" &&
+        (
+            action.id == "org.freedesktop.NetworkManager.network-control" ||
+            action.id == "org.freedesktop.NetworkManager.wifi.share.protected"
+        )
+    ) {
+        return polkit.Result.YES;
+    }
+});
+```
+
+Replace `YOUR_USERNAME` with the Raspberry Pi account that runs `app.py`.
+
+Verify:
+
+```bash
+nmcli general permissions | grep -E "network-control|wifi.share.protected"
+```
+
+Both required permissions should report `yes`.
+
+## 3. Normal Wi-Fi Recovery
+
+The normal Wi-Fi profile should have autoconnect enabled:
+
+```bash
+nmcli -f connection.id,connection.autoconnect connection show "YOUR_WIFI_CONNECTION"
+```
+
+If necessary:
+
+```bash
+sudo nmcli connection modify "YOUR_WIFI_CONNECTION" connection.autoconnect yes
+```
+
+The hotspot profile should remain:
+
+```text
+connection.autoconnect: no
+```
+
+This allows the Raspberry Pi to return to its normal saved Wi-Fi connection after the hotspot is stopped or after a reboot.
+
+---
+
+# Automatic Media Refresh
+
+The application periodically checks the `media` directory.
+
+When supported media is uploaded or removed through the web interface, the Stream Deck thumbnails and media mapping refresh without requiring a complete application restart.
+
+---
+
+# Start the Stream Deck Display Automatically
+
+`app.py` uses PyQt5 and requires the graphical desktop session, so desktop autostart is recommended.
 
 Create the autostart directory:
 
@@ -241,27 +367,19 @@ Add:
 [Desktop Entry]
 Type=Application
 Name=StreamDeck Display
-Exec=/home/garry/streamdeck-display/venv/bin/python /home/garry/streamdeck-display/app.py
-WorkingDirectory=/home/garry/streamdeck-display
+Exec=/home/YOUR_USERNAME/streamdeck-display/venv/bin/python /home/YOUR_USERNAME/streamdeck-display/app.py
+WorkingDirectory=/home/YOUR_USERNAME/streamdeck-display
 Terminal=false
 X-GNOME-Autostart-enabled=true
 ```
 
-Save the file.
+Replace `YOUR_USERNAME` with the Raspberry Pi username.
 
-The application will start automatically when the Raspberry Pi desktop session starts.
-
-There is no need to run:
-
-```bash
-source venv/bin/activate
-```
-
-inside the autostart file because the virtual environment's Python executable is called directly.
+The Stream Deck display will start after the graphical desktop session starts.
 
 ---
 
-# 9. Start Flask Web Server Automatically
+# Start the Web Media Manager Automatically
 
 The Flask server does not require the graphical desktop, so it can run as a systemd service.
 
@@ -279,9 +397,9 @@ Description=Stream Deck Web Manager
 After=network.target
 
 [Service]
-User=garry
-WorkingDirectory=/home/garry/streamdeck-display
-ExecStart=/home/garry/streamdeck-display/venv/bin/python /home/garry/streamdeck-display/web.py
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/streamdeck-display
+ExecStart=/home/YOUR_USERNAME/streamdeck-display/venv/bin/python /home/YOUR_USERNAME/streamdeck-display/web.py
 Restart=always
 RestartSec=3
 
@@ -289,218 +407,116 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-Reload systemd:
+Replace `YOUR_USERNAME` with the Raspberry Pi username.
+
+Reload systemd and enable the service:
 
 ```bash
 sudo systemctl daemon-reload
-```
-
-Enable the service at boot:
-
-```bash
 sudo systemctl enable streamdeck-web
-```
-
-Start it:
-
-```bash
 sudo systemctl start streamdeck-web
 ```
 
-Check its status:
+Check status:
 
 ```bash
 sudo systemctl status streamdeck-web
 ```
 
-Restart it after changing `web.py`:
+Useful commands:
 
 ```bash
 sudo systemctl restart streamdeck-web
-```
-
-Stop it:
-
-```bash
 sudo systemctl stop streamdeck-web
-```
-
-View its logs:
-
-```bash
 journalctl -u streamdeck-web -f
 ```
 
 ---
 
-# 10. Stream Deck Controls
+# Troubleshooting
 
-## Short Press
+## PyQt Cannot Connect to the Display
 
-Press and release a Stream Deck button.
-
-The selected media is displayed temporarily.
-
-After approximately 3 seconds the display returns to the MAIN media.
-
-## Long Press
-
-Hold a Stream Deck button for approximately 1.5 seconds.
-
-That button becomes the new MAIN media.
-
-The MAIN button is highlighted on the Stream Deck.
-
----
-
-# 11. Automatic Media Refresh
-
-The application periodically checks the `media` directory.
-
-When a media file is uploaded or removed using the web interface, the Stream Deck media list and thumbnails are refreshed without requiring the complete application to be restarted.
-
----
-
-# 12. PyQt Display Notes
-
-The display application uses PyQt5.
-
-If this error appears:
+If you see:
 
 ```text
 qt.qpa.xcb: could not connect to display
 ```
 
-make sure the application is running from the Raspberry Pi graphical desktop session.
+make sure the Raspberry Pi graphical desktop session is running.
 
-Do not normally run `app.py` with:
-
-```bash
-sudo python app.py
-```
-
-The application needs access to the active graphical display.
-
-Check the display environment with:
+Check:
 
 ```bash
 echo $DISPLAY
 ```
 
----
-
-# 13. Stream Deck HID Troubleshooting
-
-If the application reports that it cannot open the Stream Deck, check whether another copy of `app.py` is already running:
+When starting remotely while the local desktop is active, try:
 
 ```bash
-ps aux | grep app.py
+DISPLAY=:0 python app.py
 ```
 
-If an old process is still running, terminate it:
+Do not normally run the graphical application with:
+
+```bash
+sudo python app.py
+```
+
+## Stream Deck Cannot Be Opened
+
+Check whether another `app.py` process is already using the Stream Deck:
+
+```bash
+ps aux | grep "[a]pp.py"
+```
+
+If necessary, terminate the old process:
 
 ```bash
 kill PID
 ```
 
-Replace `PID` with the process ID shown by the previous command.
+If a stopped process does not exit:
+
+```bash
+kill -9 PID
+```
 
 Then start `app.py` again.
 
----
+## Hotspot Does Not Start
 
-# 14. Git Configuration
-
-Initialize Git:
+Check NetworkManager permissions:
 
 ```bash
-git init
+nmcli general permissions | grep -E "network-control|wifi.share.protected"
 ```
 
-Recommended `.gitignore`:
-
-```text
-venv/
-media/
-__pycache__/
-*.pyc
-.DS_Store
-```
-
-Set Git identity:
+Check that the hotspot profile exists:
 
 ```bash
-git config --global user.name "bajwa95"
-git config --global user.email "YOUR_GITHUB_EMAIL"
+nmcli connection show RearWave-Hotspot
 ```
 
-Create a commit:
+Check the current Wi-Fi device state:
 
 ```bash
-git add .
-git commit -m "Initial Stream Deck display and web uploader"
+nmcli device status
 ```
 
 ---
 
-# 15. GitHub SSH Authentication
+# Security
 
-Generate an SSH key:
+The Flask Media Manager is designed for use on a trusted local network or the local `RearWave` hotspot.
 
-```bash
-ssh-keygen -t ed25519 -C "bajwa95"
-```
+It currently does not provide public-Internet-grade authentication or access control. Do not expose port `5000` directly to the public Internet.
 
-Display the public key:
-
-```bash
-cat ~/.ssh/id_ed25519.pub
-```
-
-Add the public key to the GitHub account.
-
-Test authentication:
-
-```bash
-ssh -T git@github.com
-```
-
-Configure this repository to use SSH:
-
-```bash
-git remote set-url origin git@github.com:bajwa95/streamdeck-display.git
-```
-
-Verify:
-
-```bash
-git remote -v
-```
-
-Push:
-
-```bash
-git push -u origin main
-```
+Use a strong hotspot password and keep credentials out of the source code and documentation.
 
 ---
 
-# 16. Updating GitHub After Changes
+# License
 
-After modifying the project:
-
-```bash
-cd ~/streamdeck-display
-git status
-git add .
-git commit -m "Describe the changes"
-git push
-```
-
----
-
-# Security Note
-
-The Flask media manager is intended for use on a trusted local network.
-
-The current web interface should not be exposed directly to the public Internet without adding authentication and appropriate security controls.
+This project is licensed under the MIT License. See `LICENSE` for details.
