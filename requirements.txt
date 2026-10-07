@@ -289,7 +289,7 @@ types-zxcvbn==4.4
 typing_extensions==4.13.2
 uc-micro-py==1.0.3
 uritemplate==4.1.1
-urllib3==2.3.0
+urllib3==2.8.0
 videodev2==0.0.4
 webcolors==1.13
 webencodings==0.5.1
